@@ -53,12 +53,10 @@ class Revision(models.Model):
         help_text="The date and time this revision was created.",
     )
 
-    user = models.ForeignKey(
+    user = models.IntegerField(
         settings.AUTH_USER_MODEL,
         blank=True,
         null=True,
-        on_delete=models.DO_NOTHING,
-        verbose_name=_("user"),
         help_text="The user who created this revision.",
     )
 
