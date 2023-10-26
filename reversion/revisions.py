@@ -289,7 +289,7 @@ def _create_revision_context(manage_manually, using, atomic):
                 current_frame = _current_frame()
                 _save_revision(
                     versions=current_frame.db_versions[using].values(),
-                    user=current_frame.user,
+                    user=current_frame.user.id,
                     comment=current_frame.comment,
                     meta=current_frame.meta,
                     date_created=current_frame.date_created,
