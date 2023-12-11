@@ -287,9 +287,10 @@ def _create_revision_context(manage_manually, using, atomic):
             # Only save for a db if that's the last stack frame for that db.
             if not any(using in frame.db_versions for frame in _stack.get()[:-1]):
                 current_frame = _current_frame()
+                user = current_frame.user.id if current_frame.user is not None else None
                 _save_revision(
                     versions=current_frame.db_versions[using].values(),
-                    user=current_frame.user.id,
+                    user=user,
                     comment=current_frame.comment,
                     meta=current_frame.meta,
                     date_created=current_frame.date_created,
