@@ -5,7 +5,7 @@ from functools import wraps
 from django.apps import apps
 from django.core import serializers
 from django.core.exceptions import ObjectDoesNotExist
-from django.db import models, transaction, router
+from django.db import models, transaction, router, connections
 from django.db.models.query import QuerySet
 from django.db.models.signals import post_save, m2m_changed
 from django.utils.encoding import force_str
@@ -21,6 +21,7 @@ _VersionOptions = namedtuple("VersionOptions", (
     "for_concrete_model",
     "ignore_duplicates",
     "use_natural_foreign_keys",
+    "object_id_field"
 ))
 
 
@@ -168,7 +169,7 @@ def _add_to_revision(obj, using, model_db, explicit):
         return
     version_options = _get_options(obj.__class__)
     content_type = _get_content_type(obj.__class__, using)
-    object_id = force_str(obj.pk)
+    object_id = force_str(getattr(obj, version_options.object_id_field))
     version_key = (content_type, object_id)
     # If the obj is already in the revision, stop now.
     db_versions = _current_frame().db_versions
@@ -191,7 +192,9 @@ def _add_to_revision(obj, using, model_db, explicit):
     )
     # If the version is a duplicate, stop now.
     if version_options.ignore_duplicates and explicit:
-        previous_version = Version.objects.using(using).get_for_object(obj, model_db=model_db).first()
+        previous_version = Version.objects.using(using).get_for_object_reference(
+            obj.__class__, object_id, model_db=model_db
+        ).first()
         if previous_version and previous_version._local_field_dict == version._local_field_dict:
             return
     # Store the version.
@@ -211,6 +214,7 @@ def add_to_revision(obj, model_db=None):
 
 def _save_revision(versions, user=None, comment="", meta=(), date_created=None, using=None):
     from reversion.models import Revision
+    from reversion.models import Version
     # Only save versions that exist in the database.
     # Use _base_manager so we don't have problems when _default_manager is overriden
     model_db_pks = defaultdict(lambda: defaultdict(set))
@@ -220,7 +224,9 @@ def _save_revision(versions, user=None, comment="", meta=(), date_created=None, 
         model: {
             db: frozenset(map(
                 force_str,
-                model._base_manager.using(db).filter(pk__in=pks).values_list("pk", flat=True),
+                model._base_manager.using(db).filter(
+                    **{f"{_get_options(model).object_id_field}__in": pks}
+                ).values_list(_get_options(model).object_id_field, flat=True),
             ))
             for db, pks in db_pks.items()
         }
@@ -248,9 +254,17 @@ def _save_revision(versions, user=None, comment="", meta=(), date_created=None, 
     # Save the revision.
     revision.save(using=using)
     # Save version models.
+
+    can_use_bulk_create = connections[using].features.can_return_rows_from_bulk_insert
+
     for version in versions:
         version.revision = revision
-        version.save(using=using)
+        if not can_use_bulk_create:
+            version.save(using=using)
+
+    if can_use_bulk_create:
+        Version.objects.using(using).bulk_create(versions)
+
     # Save the meta information.
     for meta_model, meta_fields in meta:
         meta_model._base_manager.db_manager(using=using).create(
@@ -368,7 +382,7 @@ def _get_senders_and_signals(model):
 
 
 def register(model=None, fields=None, exclude=(), follow=(), format="json",
-             for_concrete_model=True, ignore_duplicates=False, use_natural_foreign_keys=False):
+             for_concrete_model=True, ignore_duplicates=False, use_natural_foreign_keys=False, object_id_field=None):
     def register(model):
         # Prevent multiple registration.
         if is_registered(model):
@@ -377,6 +391,12 @@ def register(model=None, fields=None, exclude=(), follow=(), format="json",
             ))
         # Parse fields.
         opts = model._meta.concrete_model._meta
+        if object_id_field is None:
+            id_field = model._meta.pk.attname
+        else:
+            model._meta.get_field(object_id_field)
+            id_field = object_id_field
+
         version_options = _VersionOptions(
             fields=tuple(
                 field_name
@@ -393,6 +413,7 @@ def register(model=None, fields=None, exclude=(), follow=(), format="json",
             for_concrete_model=for_concrete_model,
             ignore_duplicates=ignore_duplicates,
             use_natural_foreign_keys=use_natural_foreign_keys,
+            object_id_field=id_field,
         )
         # Register the model.
         _registered_models[_get_registration_key(model)] = version_options

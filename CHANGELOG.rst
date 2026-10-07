@@ -3,6 +3,85 @@
 django-reversion changelog
 ==========================
 
+6.3.0+sg.1 - 2026-10-07
+-----------------------
+
+- Merge upstream 6.3.0 while retaining nullable integer revision user IDs and
+  the deployed custom migration (RMP-1170).
+- Adapt admin history queries to the integer user field.
+- Add attribution, admin history, and migration regression coverage.
+- Document the internal patch set, maintenance procedure, and rollback.
+
+6.3.0 - 2026-06-12
+------------------
+
+- Added Turkish translation (@mcihad).
+
+
+6.2.0 - 2026-05-12
+------------------
+
+- Added ``object_id_field`` to ``reversion.register()`` (@philippeducasse).
+
+
+6.1.0 - 2025-12-12
+------------------
+
+- Added ``history_order_by_date`` and ``get_version_ordering`` to ``VersionAdmin`` (@micmarc).
+
+
+6.0.0 - 2025-09-20
+------------------
+
+- Prevent Django signals firing when viewing historical versions in admin.
+  Django model signals (pre_save, post_save, pre_delete, post_delete, m2m_changed)
+  are now muted during GET requests to revision views, preventing unintended
+  side effects from signal handlers when users view historical data. (@romanek-adam-b2c2)
+
+
+5.1.0 - 2024-08-09
+------------------
+
+- Django 5 support (@jeremy-engel).
+- Use ``bulk_create`` on supported databases (@stianjensen).
+
+
+5.0.12 - 2024-01-30
+-------------------
+
+- Fix missing migration introduced in v5.0.11.
+
+
+5.0.11 - 2024-01-29
+-------------------
+
+- Improved the Chinese translation (@zengqiu).
+
+
+5.0.10 - 2023-12-30
+-------------------
+
+- Fix N+1 queries while rendering the ``recover_list.html`` template (@armonge).
+
+
+5.0.9 - 2023-12-20
+------------------
+
+- Broken release.
+
+
+5.0.8 - 2023-11-08
+------------------
+
+- Fix ``get_deleted`` (@siddarta-weis, @etianen).
+
+
+5.0.7 - 2023-11-07
+------------------
+
+- Speed up ``get_deleted`` (@caullla).
+
+
 5.0.6 - 2023-09-29
 ------------------
 
@@ -107,7 +186,6 @@ django-reversion changelog
 - Packaging improvements (@michael-k).
 - Removing deprecated usages of `force_text` (@Tenzer).
 - Documentation fixes (@chicheng).
-- Drops Python 2.7 compatibility.
 
 
 3.0.5 - 2019-12-02
@@ -116,6 +194,7 @@ django-reversion changelog
 - Improved performance of `get_deleted` for large datasets (@jeremy-engel).
 - Django 3.0 compatibility (@claudep).
 - Drops Django < 1.11 compatibility (@claudep).
+- Drops Python 2.7 compatibility (@claudep).
 - Fixed errors in management commands when `django.contrib.admin` is not in `INSTALLED_APPS` (@irtimir).
 
 
