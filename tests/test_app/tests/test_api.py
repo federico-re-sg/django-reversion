@@ -6,6 +6,7 @@ from django.db import models
 from django.db.transaction import get_connection
 from django.utils import timezone
 import reversion
+from reversion.models import Version
 from test_app.models import TestModel, TestModelRelated, TestModelThrough, TestModelParent, TestMeta
 from test_app.tests.base import TestBase, TestBaseTransaction, TestModelMixin, UserMixin
 
@@ -274,6 +275,26 @@ class SetUserTest(UserMixin, TestModelMixin, TestBase):
     def testSetUserNoBlock(self):
         with self.assertRaises(reversion.RevisionManagementError):
             reversion.set_user(self.user)
+
+    def testDeletedUserKeepsRevisionAttribution(self):
+        with reversion.create_revision():
+            reversion.set_user(self.user)
+            obj = TestModel.objects.create()
+        revision = Version.objects.get_for_object(obj).get().revision
+        user_id = self.user.pk
+        self.user.delete()
+        revision.refresh_from_db()
+        self.assertEqual(revision.user, user_id)
+        self.assertEqual(revision.version_set.count(), 1)
+
+    def testNestedRevisionKeepsUserObjectUntilSaved(self):
+        with reversion.create_revision():
+            reversion.set_user(self.user)
+            with reversion.create_revision():
+                obj = TestModel.objects.create()
+                self.assertIs(reversion.get_user(), self.user)
+            self.assertIs(reversion.get_user(), self.user)
+        self.assertSingleRevision((obj,), user=self.user)
 
 
 class GetUserTest(UserMixin, TestBase):

@@ -44,7 +44,7 @@ class TestBaseMixin:
     def assertSingleRevision(self, objects, user=None, comment="", meta_names=(), date_created=None,
                              using=None, model_db=None):
         revision = Version.objects.using(using).get_for_object(objects[0], model_db=model_db).get().revision
-        self.assertEqual(revision.user, user)
+        self.assertEqual(revision.user, user.pk if user is not None else None)
         if hasattr(comment, 'pattern'):
             self.assertRegex(revision.get_comment(), comment)
         elif comment is not None:  # Allow a wildcard comment.
